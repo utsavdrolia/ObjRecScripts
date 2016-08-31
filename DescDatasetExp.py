@@ -8,42 +8,48 @@ import numpy as np
 from RunPipeline import run_pipeline
 from PrecisionRecallAnalysis import precision, recall
 import json
-
-EXPERIMENTS_DIR = "/Users/utsav/Documents/DATA/Research/HYRAX/Datasets/ObjectRecog/UMissouri/Experiment"
-UMISS_DATASET = "/Users/utsav/Documents/DATA/Research/HYRAX/Datasets/ObjectRecog/UMissouri/Dataset/Database_images/_list_images.txt"
-UMISS_QUERIES = "/Users/utsav/Documents/DATA/Research/HYRAX/Datasets/ObjectRecog/UMissouri/Dataset/Query_images/_list_images.txt"
-ORB_PARS = "/Users/utsav/Documents/DATA/Research/HYRAX/Code/JavaOR/orb_pars.txt"
+from FileSystemGlobals import *
 
 
-def run_iter(iter_folder, objects, descnum):
+'''
+Experiment for variable Descriptor and dataset sizes
+'''
+
+def run_iter(iter_folder, objects, descnum, matchertype, featuretype):
     if os.path.exists(iter_folder):
         shutil.rmtree(iter_folder)
     os.mkdir(iter_folder)
     EXP_DB = iter_folder + os.sep + "DBImages"
     EXP_QUERIES = iter_folder + os.sep + "Queries"
     RESULT = iter_folder + os.sep + "results"
-    run_pipeline(UMISS_DATASET, EXP_DB, objects, UMISS_QUERIES, EXP_QUERIES, descnum, ORB_PARS, RESULT)
-    q, r = parse_results(RESULT)
+    run_pipeline(UMISS_DATASET, EXP_DB, objects, UMISS_QUERIES, EXP_QUERIES, descnum, RESULT, matchertype, featuretype)
+    q, r, t = parse_results(RESULT)
     prec = precision(q, r)
     rec = recall(q, r)
-    json.dump({"precision": prec, "recall": rec}, open(iter_folder + os.sep + "analysis", "w"))
-    return prec, rec
+    lat = np.mean(t)
+    json.dump({"precision": prec, "recall": rec, "latency": lat}, open(iter_folder + os.sep + "analysis", "w"))
+    return prec, rec, lat
 
 
-def run_iters(start, stop, objects, descnum):
+def run_iters(start, stop, objects, descnum, matchertype, featuretype):
     exp_dir = EXPERIMENTS_DIR + os.sep + "O_" + str(objects) + os.sep + "D_" + str(descnum)
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
     precs = []
     recs = []
+    lats = []
     for iteration in range(start, stop + 1):
+        print("Running Iteration: {}".format(iteration))
         iter_folder = exp_dir + os.sep + "Iter_" + str(iteration)
-        prec, rec = run_iter(iter_folder, objects, descnum)
+        prec, rec, lat = run_iter(iter_folder, objects, descnum, matchertype, featuretype)
         precs.append(prec)
         recs.append(rec)
-
-    json.dump({"precision": (np.mean(precs), np.std(precs)), "recall": (np.mean(recs), np.std(recs))}, open(exp_dir + os.sep + "analysis", "w"))
+        lats.append(lat)
+    results = {"precision": (np.mean(precs), np.std(precs)), "recall": (np.mean(recs), np.std(recs)),
+               "latency": (np.mean(lats), np.std(lats))}
+    print(results)
+    json.dump(results, open(exp_dir + os.sep + "analysis", "w"))
 
 
 def parse_results(result):
@@ -51,12 +57,14 @@ def parse_results(result):
     lines = res.readlines()
     q = []
     r = []
+    t = []
     for line in lines:
         line = line.strip()
         chunks = line.split(",")
         q.append(chunks[0])
         r.append(chunks[1])
-    return q, r
+        t.append(int(chunks[2]))
+    return q, r, t
 
 if __name__ == '__main__':
     parser = OptionParser()

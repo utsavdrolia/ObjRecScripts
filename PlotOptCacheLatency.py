@@ -1,6 +1,7 @@
 from collections import Counter
 import sys
 import random
+from matplotlib.backends.backend_pdf import PdfPages
 
 import numpy as np
 
@@ -9,6 +10,8 @@ sys.path.append("/Users/utsav/Documents/DATA/Research/HYRAX/Code/")
 
 from PlotterUtils import dual_yaxis_lineplot
 from PyCache.OptCache import OptCache
+from PyCache.DecayOptCache import DecayOptCache
+from PyCache.PerfectLFUCache import PerfectLFUCache
 from PyCache.ZipfGenerator import randZipf
 from PlotterUtils import lineplot
 
@@ -16,7 +19,7 @@ if __name__ == '__main__':
 
 
     # Total dataset size
-    N = 2000
+    N = 4000
     print ("N:{}".format(N))
 
     cloudcomput_const = 1  # 400 images in 400ms
@@ -53,50 +56,53 @@ if __name__ == '__main__':
     # cache_sizes = [int((float(x)/40.0) * w) for x in range(0, 21)]
     priors = None
     cache = OptCache(N)
-    for i in [1, 2]:
-        queries = randZipf(w, i*0.4, 10000)
-        lat = []
-        ratios = []
-        cache_sizes = []
+    queries = randZipf(w, 0.8, 100000)
+    lat = []
+    ratios = []
+    cache_sizes = []
 
-        qcounter = 0
-        counter = Counter(queries)
-        for q in queries:
-            qcounter += 1
-            counter[q] += 1
-            pre_miss = cache.getmisses()
-            v = cache[q]
-            cache_lat = len(cache) * l
-            post_miss = cache.getmisses()
-            lat.append(cache_lat + L * (post_miss - pre_miss))
-            cache_sizes.append(len(cache))
-            ratio = float(cache.getmisses()) / qcounter
-            ratios.append(ratio)
-        priors = cache.getcounter()
+    qcounter = 0
+    counter = Counter(queries)
+    for q in queries:
+        qcounter += 1
+        counter[q] += 1
+        pre_miss = cache.getmisses()
+        v = cache[q]
+        cache_lat = len(cache) * l
+        post_miss = cache.getmisses()
+        lat.append(cache_lat + L * (post_miss - pre_miss))
+        cache_sizes.append(len(cache))
+        ratio = float(cache.getmisses()) / qcounter
+        ratios.append(ratio)
         # lfratio = cache.getleastratio()
 
-        # print ("Miss Ratio:{}".format(ratios[-1]))
-        print ("Latency:{}".format(sum(lat)/qcounter))
-        print ("L:{}".format(L))
+    # print ("Miss Ratio:{}".format(ratios[-1]))
+    print ("Latency:{}".format(sum(lat)/qcounter))
+    print ("L:{}".format(L))
+    # print ("Counter:{}".format(cache.getcounter()))
+    lat = list(np.convolve(lat, np.ones((N,)) / (N), mode='valid').tolist())
+    len_lat = len(lat)
+    for pad in range(len(queries) - len_lat):
+        lat.insert(0, lat[0])
 
-        lat = list(np.convolve(lat, np.ones((N,)) / N, mode='valid').tolist())
-        len_lat = len(lat)
-        for pad in range(len(queries) - len_lat):
-            lat.insert(0, lat[0])
+    dual_yaxis_lineplot.dual_yaxis_plot(ratios, cache_sizes, range(len(queries)), xlabel="Query Number",
+                                        y1label="Miss Ratio",
+                                        y1lim = (0, 1),
+                                        y2label="Cache size", title="RatioSizeVsTime",
+                                        legend=("Miss Ratio", "Cache size"),
+                                        flag=False)
 
-        dual_yaxis_lineplot.dual_yaxis_plot(ratios, cache_sizes, range(len(queries)), xlabel="Query Number",
-                                            y1label="Miss Ratio",
-                                            y1lim = (0, 1),
-                                            y2label="Cache size", title="LatencySizeVsTime",
-                                            legend=("Miss Ratio", "Cache size"),
-                                            flag=False)
-
-        dual_yaxis_lineplot.dual_yaxis_plot(lat, cache_sizes, range(len(queries)), xlabel="Query Number",
-                                            y1label="Latency",
-                                            y2label="Cache size", title="RatioSizeVsTime",
-                                            legend=("Latency", "Cache size"),
-                                            flag=False)
-
+    ax1, plt = dual_yaxis_lineplot.dual_yaxis_plot(lat, cache_sizes, range(len(queries)), xlabel="Query Number",
+                                        y1lim=(0, L + 100),
+                                        y1label="Latency",
+                                        y2label="Cache size", title="LatencySizeVsTime",
+                                        legend=("Latency with Cache", "Cache size"),
+                                        flag=False)
+    # handles=plot, labels="Without Cache"
+    # # plt.show()
+    # pdf = PdfPages("LatencySizeVsTime" + "_" + str(N) + ".pdf")
+    # plt.savefig(pdf, format='pdf', bbox_inches='tight')
+    # pdf.close()
     # print(len(lat))
     # lineplot.lineplot_multi([counter.values()], counter.keys(), xlabel="Query Number", ylabel="Latency (ms)",
     #                         title="LatencyVsTime", flag=False)

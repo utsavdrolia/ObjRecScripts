@@ -9,10 +9,18 @@ This script creates mini datasets and respective queries with noise from the ori
 '''
 
 
-NOISE = 0.1
+NOISE = 5
+NUM_QUERIES = 20
 
 
 def create_db(indbpath, outdbpath, num):
+    '''
+    Create a DB of num size from main DB
+    :param indbpath:
+    :param outdbpath:
+    :param num:
+    :return:
+    '''
     indbitems = open(indbpath).readlines()
     Random().shuffle(indbitems)
     indbitems = [item.strip().split("\t") for item in indbitems]
@@ -59,21 +67,30 @@ def create_queries(qinpath, qdpath, qobjects, nobjects):
     out = qdpath + os.sep + "querylist.txt"
     outputfile = open(out, "w")
     Random().shuffle(lines)
-
+    count = 0
+    noisecount = 0
+    outlist = []
     for line in lines:
         line = line.strip()
         chunks = line.split("\t")
         imgname = chunks[1]
         if imgname in qobjects:
+            if count < NUM_QUERIES:
+                imginpath = os.path.dirname(qinpath) + os.sep + chunks[0]
+                imgoutpath = qdpath + os.sep + os.path.basename(imginpath)
+                if not os.path.exists(imgoutpath):
+                    os.symlink(imginpath, imgoutpath)
+                outlist.append(imgname + "," + imgoutpath + "\n")
+                count += 1
+        elif noisecount < int(NOISE * NUM_QUERIES):
             imginpath = os.path.dirname(qinpath) + os.sep + chunks[0]
             imgoutpath = qdpath + os.sep + os.path.basename(imginpath)
-            os.symlink(imginpath, imgoutpath)
-            outputfile.write(imgname + "," + imgoutpath + "\n")
-        elif imgname in nobjects:
-            imginpath = os.path.dirname(qinpath) + os.sep + chunks[0]
-            imgoutpath = qdpath + os.sep + os.path.basename(imginpath)
-            os.symlink(imginpath, imgoutpath)
-            outputfile.write("Noise" + "," + imgoutpath + "\n")
+            if not os.path.exists(imgoutpath):
+                os.symlink(imginpath, imgoutpath)
+            outlist.append("Noise" + "," + imgoutpath + "\n")
+            noisecount += 1
+    Random().shuffle(outlist)
+    outputfile.writelines(outlist)
     return out
 
 

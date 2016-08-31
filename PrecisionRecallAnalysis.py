@@ -1,5 +1,7 @@
 from optparse import OptionParser
 import numpy as np
+
+NOISE = "Noise"
 NONE = "None"
 
 
@@ -19,10 +21,9 @@ def recall(querylist, resultlist):
     global NONE
     rec = []
     for q, r in zip(querylist, resultlist):
-        if r == q:
-            rec.append(1)
-        elif q == "Noise" and r == NONE:
-            rec.append(1)
-        else:
-            rec.append(0)
+        if q != NOISE:
+            if r == q:
+                rec.append(1)
+            else:
+                rec.append(0)
     return np.mean(rec)

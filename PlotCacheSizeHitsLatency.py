@@ -37,7 +37,7 @@ if __name__ == '__main__':
     print ("w:{}".format(w))
 
     # generate zipf
-    z = ZipfGenerator(w, 0.5)
+    z = ZipfGenerator(w, 2.0)
 
     # Number of queries = 100*w
     queries = [z.next() for n in range(10*w)]
@@ -68,6 +68,6 @@ if __name__ == '__main__':
     for r in range(1, len(diffratios)):
         diffdiffratios.append(((diffratios[r][0] - diffratios[r - 1][0])/(cache_sizes[r] - cache_sizes[r-1]), 0))
 
-    dual_yaxis_lineplot.dual_yaxis_plot(lat, ratios, cache_sizes, xlabel="Cache Size", y1label="Average Latency (ms)",
+    dual_yaxis_lineplot.dual_yaxis_plot(lat, diffdiffratios, cache_sizes, xlabel="Cache Size", y1label="Average Latency (ms)",
                                         y2label="Miss Ratio", title="CacheLatencyVsSize", legend=("Latency","Miss Ratio"),
                                         flag=False)
